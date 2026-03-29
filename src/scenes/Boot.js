@@ -19,6 +19,90 @@ export default class Boot extends Phaser.Scene {
     pg.generateTexture('pixel', 1, 1);
     pg.destroy();
 
+    // 50×64 bark tile — tiled vertically on the trunk
+    const bg = this.make.graphics({ add: false });
+    const TW = 50, TH = 64;
+    // Base
+    bg.fillStyle(0x3d1c00);
+    bg.fillRect(0, 0, TW, TH);
+    // Vertical grain streaks
+    const grainColors = [0x5a2b0a, 0x4a2208, 0x6b3310, 0x2e1500];
+    const grainXs = [6, 17, 29, 38, 45];
+    for (let i = 0; i < grainXs.length; i++) {
+      bg.lineStyle(i % 2 === 0 ? 2 : 1, grainColors[i % grainColors.length], 0.8);
+      bg.beginPath();
+      bg.moveTo(grainXs[i], 0);
+      // Slight horizontal waver every 16px
+      for (let y = 0; y <= TH; y += 16) {
+        bg.lineTo(grainXs[i] + (i % 3 === 0 ? 1 : -1) * (y % 32 < 16 ? 1 : 0), y);
+      }
+      bg.strokePath();
+    }
+    // Horizontal crack lines
+    for (const [cy, w] of [[18, 28], [42, 20]]) {
+      bg.lineStyle(1, 0x1e0a00, 0.9);
+      bg.beginPath();
+      bg.moveTo(8, cy);
+      bg.lineTo(8 + w, cy);
+      bg.strokePath();
+    }
+    bg.generateTexture('bark', TW, TH);
+    bg.destroy();
+
+    // 128×64 fluffy cloud
+    const cloudG = this.make.graphics({ add: false });
+    cloudG.fillStyle(0xffffff, 1);
+    cloudG.fillEllipse(40, 44, 64, 36);
+    cloudG.fillEllipse(76, 46, 56, 32);
+    cloudG.fillEllipse(104, 42, 48, 30);
+    cloudG.fillEllipse(46, 28, 52, 40);
+    cloudG.fillEllipse(74, 22, 58, 44);
+    cloudG.fillEllipse(102, 30, 44, 36);
+    cloudG.fillEllipse(68, 10, 40, 30);
+    cloudG.generateTexture('cloud', 128, 64);
+    cloudG.destroy();
+
+    // 32×18 branch tile — tiled horizontally on each branch
+    const branchG = this.make.graphics({ add: false });
+    branchG.fillStyle(0x7a3d0e);
+    branchG.fillRect(0, 0, 32, 18);
+    // Top shadow
+    branchG.fillStyle(0x4a2208);
+    branchG.fillRect(0, 0, 32, 2);
+    // Bottom shadow
+    branchG.fillStyle(0x3a1a06);
+    branchG.fillRect(0, 16, 32, 2);
+    // Highlight ridge
+    branchG.fillStyle(0xa05a22);
+    branchG.fillRect(0, 5, 32, 4);
+    // Vertical grain marks
+    branchG.lineStyle(1, 0x5a2d0a, 0.7);
+    for (const gx of [8, 18, 27]) {
+      branchG.beginPath();
+      branchG.moveTo(gx, 2);
+      branchG.lineTo(gx + 2, 16);
+      branchG.strokePath();
+    }
+    branchG.generateTexture('branch-tile', 32, 18);
+    branchG.destroy();
+
+    // 48×32 leaf cluster — placed at branch tips
+    const leafG = this.make.graphics({ add: false });
+    leafG.fillStyle(0x1a5e1a);
+    leafG.fillEllipse(24, 20, 38, 26);
+    leafG.fillStyle(0x2e7d32);
+    leafG.fillEllipse(16, 16, 24, 20);
+    leafG.fillStyle(0x388e3c);
+    leafG.fillEllipse(30, 14, 22, 18);
+    leafG.fillStyle(0x43a047);
+    leafG.fillEllipse(22, 10, 20, 14);
+    leafG.fillStyle(0x4caf50);
+    leafG.fillEllipse(28, 8, 14, 10);
+    leafG.fillStyle(0x66bb6a);
+    leafG.fillEllipse(20, 6, 10, 8);
+    leafG.generateTexture('leaf-cluster', 48, 32);
+    leafG.destroy();
+
     // One 40×52 texture per monkey pose
     for (const pose of ['idle', 'run1', 'run2', 'jump', 'fall']) {
       const g = this.make.graphics({ add: false });

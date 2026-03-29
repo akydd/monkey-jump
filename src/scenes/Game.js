@@ -18,11 +18,16 @@ export default class Game extends Phaser.Scene {
   create() {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Background — dark forest
-    this.add.rectangle(TRUNK_X, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, 0x0a1a0a);
+    // Background — blue sky gradient (deep blue at top, light blue at bottom)
+    const sky = this.add.graphics();
+    sky.fillGradientStyle(0x1565c0, 0x1565c0, 0x87ceeb, 0x87ceeb, 1);
+    sky.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Tree trunk
-    this.add.rectangle(TRUNK_X, WORLD_HEIGHT / 2, TRUNK_WIDTH, WORLD_HEIGHT, 0x3d1c00);
+    // Clouds — scattered throughout the world, behind the trunk
+    this._spawnClouds();
+
+    // Tree trunk — bark texture tiled vertically
+    this.add.tileSprite(TRUNK_X, WORLD_HEIGHT / 2, TRUNK_WIDTH, WORLD_HEIGHT, 'bark');
 
     // Branches
     this.platforms = this.physics.add.staticGroup();
@@ -51,17 +56,18 @@ export default class Game extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 1, 0.12);
 
     // HUD
-    this.heightText = this.add.text(10, 10, 'Height: 0m', {
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setScrollFactor(0).setDepth(10);
+    const hudStyle = { fontSize: '18px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 };
+    this.currentHeightText = this.add.text(10, 10, 'Current: 0m', hudStyle)
+      .setScrollFactor(0).setDepth(10);
+    this.maxHeightText = this.add.text(10, 34, 'Best: 0m', hudStyle)
+      .setScrollFactor(0).setDepth(10);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.mobileInput = { left: false, right: false, jumpJustPressed: false };
     this._createMobileButtons();
+    this._createPauseButton();
     this.maxHeight = 0;
+    this._paused = false;
   }
 
   _createMobileButtons() {
@@ -92,6 +98,62 @@ export default class Game extends Phaser.Scene {
     rightBtn.on('pointerout', () => { this.mobileInput.right = false; });
 
     jumpBtn.on('pointerdown',  () => { this.mobileInput.jumpJustPressed = true; });
+  }
+
+  // ── Pause ────────────────────────────────────────────────────────────────
+
+  _createPauseButton() {
+    const { width, height } = this.scale;
+
+    // Overlay shown while paused
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45)
+      .setScrollFactor(0).setDepth(25).setVisible(false);
+    const pauseLabel = this.add.text(width / 2, height / 2, 'PAUSED', {
+      fontSize: '48px', color: '#ffffff', stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26).setVisible(false);
+
+    // Pause button — top-right corner, above the overlay
+    const bx = width - 30;
+    const by = 30;
+    const btn = this.add.circle(bx, by, 22, 0x000000, 0.55)
+      .setScrollFactor(0).setDepth(27).setInteractive({ useHandCursor: true });
+    const icon = this.add.text(bx, by, '❚❚', { fontSize: '14px', color: '#ffffff' })
+      .setOrigin(0.5).setScrollFactor(0).setDepth(28);
+
+    const toggle = () => {
+      this._paused = !this._paused;
+      if (this._paused) {
+        this.physics.pause();
+        this.tweens.pauseAll();
+        this.time.paused = true;
+        icon.setText('▶');
+        overlay.setVisible(true);
+        pauseLabel.setVisible(true);
+      } else {
+        this.physics.resume();
+        this.tweens.resumeAll();
+        this.time.paused = false;
+        icon.setText('❚❚');
+        overlay.setVisible(false);
+        pauseLabel.setVisible(false);
+      }
+    };
+
+    btn.on('pointerdown', toggle);
+    this.input.keyboard.on('keydown-ESC', toggle);
+  }
+
+  // ── Cloud generation ─────────────────────────────────────────────────────
+
+  _spawnClouds() {
+    const rng = new Phaser.Math.RandomDataGenerator(['monkey-clouds']);
+    for (let i = 0; i < 40; i++) {
+      const x     = rng.integerInRange(0, WORLD_WIDTH);
+      const y     = rng.integerInRange(0, WORLD_HEIGHT - 400);
+      const scale = rng.realInRange(0.5, 1.5);
+      const alpha = rng.realInRange(0.6, 1.0);
+      this.add.image(x, y, 'cloud').setScale(scale).setAlpha(alpha);
+    }
   }
 
   // ── Branch generation ────────────────────────────────────────────────────
@@ -130,13 +192,42 @@ export default class Game extends Phaser.Scene {
   }
 
   addBranch(x, y, width, breakable = true) {
-    const b = this.platforms.create(x, y, 'pixel')
+    const b = this.platforms.create(x, y, 'branch-tile')
       .setDisplaySize(width, 18)
-      .setTint(0x6b3a2a)
       .refreshBody();
     b.setData('breakable', breakable);
     b.setData('standTime', 0);
+    if (breakable) {
+      b.setData('leaves', this._addBranchLeaves(x, y, width));
+    }
     return b;
+  }
+
+  _addBranchLeaves(x, y, width) {
+    const leaves = [];
+    const add = (lx, ly, flipX = false, scale = 1) => {
+      leaves.push(
+        this.add.image(lx, ly, 'leaf-cluster')
+          .setFlipX(flipX).setScale(scale).setDepth(1),
+      );
+    };
+
+    if (x > TRUNK_X + 5) {
+      // Right branch — tuft at outer (right) tip
+      const tip = x + width / 2;
+      add(tip - 10, y - 14);
+      if (width > 90) add(tip - 36, y - 10, false, 0.75);
+    } else if (x < TRUNK_X - 5) {
+      // Left branch — tuft at outer (left) tip
+      const tip = x - width / 2;
+      add(tip + 10, y - 14, true);
+      if (width > 90) add(tip + 36, y - 10, true, 0.75);
+    } else {
+      // Full-width branch — tufts on both ends
+      add(x + width / 2 - 10, y - 12);
+      add(x - width / 2 + 10, y - 12, true);
+    }
+    return leaves;
   }
 
   // ── Breaking logic ───────────────────────────────────────────────────────
@@ -174,36 +265,58 @@ export default class Game extends Phaser.Scene {
     platform.setData('warning', false);
     this.tweens.killTweensOf(platform);
     platform.setAlpha(1);
-    platform.setTint(0x6b3a2a);
+    platform.clearTint();
   }
 
   _breakBranch(platform) {
     platform.setData('breaking', true);
     this.tweens.killTweensOf(platform);
 
+    const { x, y, displayWidth } = platform;
+    const leaves = platform.getData('leaves') || [];
+
     // Disable physics immediately so the player starts falling right away
     platform.body.enable = false;
 
-    // Visual fade-out
+    // Fade out branch and leaves together, then schedule regrowth
     this.tweens.add({
-      targets: platform,
+      targets: [platform, ...leaves],
       alpha: 0,
       duration: 250,
       ease: 'Power2',
-      onComplete: () => platform.destroy(),
+      onComplete: () => {
+        platform.destroy();
+        leaves.forEach(l => l.destroy());
+        this.time.delayedCall(5000, () => this._regrowBranch(x, y, displayWidth));
+      },
+    });
+  }
+
+  _regrowBranch(x, y, width) {
+    const b = this.addBranch(x, y, width);
+    const leaves = b.getData('leaves') || [];
+    [b, ...leaves].forEach(obj => obj.setAlpha(0));
+    this.tweens.add({
+      targets: [b, ...leaves],
+      alpha: 1,
+      duration: 600,
+      ease: 'Power2',
     });
   }
 
   // ── Main loop ────────────────────────────────────────────────────────────
 
   update(_time, delta) {
+    if (this._paused) return;
+
     this.player.update(this.cursors, this.mobileInput);
 
     this._handleBranchTimer(delta);
 
     const height = Math.max(0, GROUND_Y - this.player.y);
     if (height > this.maxHeight) this.maxHeight = height;
-    this.heightText.setText(`Height: ${Math.floor(this.maxHeight / 10)}m`);
+    this.currentHeightText.setText(`Current: ${Math.floor(height / 10)}m`);
+    this.maxHeightText.setText(`Best: ${Math.floor(this.maxHeight / 10)}m`);
 
     if (this.player.y > WORLD_HEIGHT - 20) {
       this.scene.start('GameOver', { depth: Math.floor(this.maxHeight / 10) });
