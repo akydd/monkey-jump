@@ -6,22 +6,24 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.play('monkey-idle');
   }
 
-  update(cursors) {
+  update(cursors, mobileInput = {}) {
     const onGround = this.body.blocked.down;
 
     // Horizontal movement
-    if (cursors.left.isDown) {
+    if (cursors.left.isDown || mobileInput.left) {
       this.setVelocityX(-260);
       this.setFlipX(true);
-    } else if (cursors.right.isDown) {
+    } else if (cursors.right.isDown || mobileInput.right) {
       this.setVelocityX(260);
       this.setFlipX(false);
     } else {
       this.setVelocityX(0);
     }
 
-    // Jump
-    if (Phaser.Input.Keyboard.JustDown(cursors.up) && onGround) {
+    // Jump — consume the one-shot mobile flag immediately
+    const jumpPressed = Phaser.Input.Keyboard.JustDown(cursors.up) || mobileInput.jumpJustPressed;
+    mobileInput.jumpJustPressed = false;
+    if (jumpPressed && onGround) {
       this.setVelocityY(-480);
     }
 

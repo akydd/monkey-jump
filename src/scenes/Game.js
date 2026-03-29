@@ -36,6 +36,7 @@ export default class Game extends Phaser.Scene {
     // The callback fires during the physics step (preUpdate), so by the time
     // update() runs, activePlatform is already set for this frame.
     this.activePlatform = null;
+    this.prevPlatform = null;
     this.physics.add.collider(
       this.player,
       this.platforms,
@@ -57,7 +58,39 @@ export default class Game extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(10);
 
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.mobileInput = { left: false, right: false, jumpJustPressed: false };
+    this._createMobileButtons();
     this.maxHeight = 0;
+  }
+
+  _createMobileButtons() {
+    const { width, height } = this.scale;
+    const btnAlpha = 0.55;
+    const btnRadius = 35;
+    const margin = 20;
+    const y = height - margin - btnRadius;
+
+    const makeBtn = (x, label) => {
+      const bg = this.add.circle(x, y, btnRadius, 0x000000, btnAlpha)
+        .setScrollFactor(0).setDepth(20).setInteractive();
+      this.add.text(x, y, label, { fontSize: '26px', color: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(21);
+      return bg;
+    };
+
+    const leftBtn  = makeBtn(margin + btnRadius, '◀');
+    const rightBtn = makeBtn(margin + btnRadius * 3 + 10, '▶');
+    const jumpBtn  = makeBtn(width - margin - btnRadius, '▲');
+
+    leftBtn.on('pointerdown',  () => { this.mobileInput.left = true; });
+    leftBtn.on('pointerup',   () => { this.mobileInput.left = false; });
+    leftBtn.on('pointerout',  () => { this.mobileInput.left = false; });
+
+    rightBtn.on('pointerdown', () => { this.mobileInput.right = true; });
+    rightBtn.on('pointerup',  () => { this.mobileInput.right = false; });
+    rightBtn.on('pointerout', () => { this.mobileInput.right = false; });
+
+    jumpBtn.on('pointerdown',  () => { this.mobileInput.jumpJustPressed = true; });
   }
 
   // ── Branch generation ────────────────────────────────────────────────────
@@ -78,23 +111,20 @@ export default class Game extends Phaser.Scene {
       if (rng.integerInRange(0, 7) === 0) {
         this.addBranch(TRUNK_X, y, WORLD_WIDTH - MARGIN * 2);
       } else {
-        this.addBranch(this.branchX(side, width, rng), y, width);
+        this.addBranch(this.branchX(side, width), y, width);
         side *= -1;
       }
     }
   }
 
-  branchX(side, width, rng) {
+  branchX(side, width) {
     const halfWidth = width / 2;
     const halfTrunk = TRUNK_WIDTH / 2;
+    // Anchor the inner end of each branch to the trunk edge
     if (side === 1) {
-      const minX = TRUNK_X + halfTrunk + halfWidth;
-      const maxX = WORLD_WIDTH - MARGIN - halfWidth;
-      return rng.integerInRange(minX, Math.max(minX, maxX));
+      return TRUNK_X + halfTrunk + halfWidth;
     } else {
-      const minX = MARGIN + halfWidth;
-      const maxX = TRUNK_X - halfTrunk - halfWidth;
-      return rng.integerInRange(Math.min(minX, maxX), maxX);
+      return TRUNK_X - halfTrunk - halfWidth;
     }
   }
 
@@ -136,6 +166,16 @@ export default class Game extends Phaser.Scene {
     }
   }
 
+  _resetBranchTimer(platform) {
+    if (!platform || !platform.getData('breakable')) return;
+    if (platform.getData('breaking')) return;
+    platform.setData('standTime', 0);
+    platform.setData('warning', false);
+    this.tweens.killTweensOf(platform);
+    platform.setAlpha(1);
+    platform.setTint(0x6b3a2a);
+  }
+
   _breakBranch(platform) {
     platform.setData('breaking', true);
     this.tweens.killTweensOf(platform);
@@ -156,7 +196,7 @@ export default class Game extends Phaser.Scene {
   // ── Main loop ────────────────────────────────────────────────────────────
 
   update(_time, delta) {
-    this.player.update(this.cursors);
+    this.player.update(this.cursors, this.mobileInput);
 
     this._handleBranchTimer(delta);
 
@@ -167,6 +207,12 @@ export default class Game extends Phaser.Scene {
     if (this.player.y > WORLD_HEIGHT - 20) {
       this.scene.start('GameOver', { depth: Math.floor(this.maxHeight / 10) });
     }
+
+    // Reset timer if player left the platform
+    if (this.prevPlatform && this.prevPlatform !== this.activePlatform) {
+      this._resetBranchTimer(this.prevPlatform);
+    }
+    this.prevPlatform = this.activePlatform;
 
     // Clear each frame — re-set by the collider callback during next physics step
     this.activePlatform = null;

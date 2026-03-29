@@ -11,21 +11,23 @@ export default class MainMenu extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    const startText = this.add.text(width / 2, height / 2 + 60, 'Press SPACE to Start', {
-      fontSize: '24px',
-      color: '#aaaaaa',
-    }).setOrigin(0.5);
+    const button = this.add.text(width / 2, height / 2 + 60, 'Tap to Start', {
+      fontSize: '28px',
+      color: '#ffffff',
+      backgroundColor: '#226622',
+      padding: { x: 24, y: 12 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     this.tweens.add({
-      targets: startText,
-      alpha: 0,
+      targets: button,
+      alpha: 0.6,
       duration: 800,
       yoyo: true,
       repeat: -1,
     });
 
-    this.input.keyboard.once('keydown-SPACE', () => {
-      this.scene.start('Game');
-    });
+    const startGame = () => this.scene.start('Game');
+    button.once('pointerdown', startGame);
+    this.input.keyboard.once('keydown-SPACE', startGame);
   }
 }
