@@ -37,6 +37,7 @@ export default class Game extends Phaser.Scene {
     // update() runs, activePlatform is already set for this frame.
     this.activePlatform = null;
     this.prevPlatform = null;
+    this.airFrames = 0;
     this.physics.add.collider(
       this.player,
       this.platforms,
@@ -208,11 +209,17 @@ export default class Game extends Phaser.Scene {
       this.scene.start('GameOver', { depth: Math.floor(this.maxHeight / 10) });
     }
 
-    // Reset timer if player left the platform
-    if (this.prevPlatform && this.prevPlatform !== this.activePlatform) {
-      this._resetBranchTimer(this.prevPlatform);
+    // Reset timer only after 3 consecutive frames off the platform, to avoid
+    // spurious resets from single-frame collider misses.
+    if (this.activePlatform !== null) {
+      this.prevPlatform = this.activePlatform;
+      this.airFrames = 0;
+    } else if (this.prevPlatform) {
+      this.airFrames++;
+      if (this.airFrames === 3) {
+        this._resetBranchTimer(this.prevPlatform);
+      }
     }
-    this.prevPlatform = this.activePlatform;
 
     // Clear each frame — re-set by the collider callback during next physics step
     this.activePlatform = null;
