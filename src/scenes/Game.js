@@ -7,15 +7,26 @@ const TRUNK_WIDTH = 50;
 const MARGIN = 40;
 const GROUND_Y = WORLD_HEIGHT - 120;
 
-const BREAK_WARN_MS  = 1500; // orange flash starts here
-const BREAK_TOTAL_MS = 2000; // physics disabled here
+// y coordinate below which the topmost branch spawns — used to trigger level-up prompt
+const TOP_THRESHOLD = 550;
+
+const LEVEL_CONFIG = {
+  1: { warnMs: 1500, breakMs: 2000 },
+  2: { warnMs: 1000, breakMs: 1500 },
+};
 
 export default class Game extends Phaser.Scene {
   constructor() {
     super('Game');
   }
 
-  create() {
+  create(data) {
+    this._level = data?.level ?? 1;
+    const cfg = LEVEL_CONFIG[this._level] ?? LEVEL_CONFIG[1];
+    this._breakWarnMs  = cfg.warnMs;
+    this._breakTotalMs = cfg.breakMs;
+    this._levelUpShown = false;
+
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     // Background — blue sky gradient (deep blue at top, light blue at bottom)
@@ -68,6 +79,16 @@ export default class Game extends Phaser.Scene {
     this._createPauseButton();
     this.maxHeight = 0;
     this._paused = false;
+
+    if (this._level > 1) {
+      this._showLevelBanner(`Level ${this._level}`);
+    }
+
+    // Background music — start only on level 1 to avoid restarting between levels
+    if (this._level === 1) {
+      this._music = this.sound.add('music', { loop: true, volume: 0.6 });
+      this._music.play();
+    }
   }
 
   _createMobileButtons() {
@@ -230,6 +251,86 @@ export default class Game extends Phaser.Scene {
     return leaves;
   }
 
+  // ── Level UI ─────────────────────────────────────────────────────────────
+
+  _showLevelBanner(text) {
+    const { width, height } = this.scale;
+    const banner = this.add.text(width / 2, height / 2, text, {
+      fontSize: '52px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(30).setAlpha(0);
+
+    this.tweens.add({
+      targets: banner,
+      alpha: 1,
+      duration: 400,
+      yoyo: true,
+      hold: 900,
+      onComplete: () => banner.destroy(),
+    });
+  }
+
+  _showLevelUpPrompt() {
+    this._levelUpShown = true;
+    const { width, height } = this.scale;
+
+    const box = this.add.rectangle(width / 2, height / 2, 360, 130, 0x000000, 0.7)
+      .setScrollFactor(0).setDepth(30);
+    const title = this.add.text(width / 2, height / 2 - 28, 'You reached the top!', {
+      fontSize: '22px', color: '#ffdd00', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+    const prompt = this.add.text(width / 2, height / 2 + 10, 'Press SPACE for Level 2', {
+      fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+    const skip = this.add.text(width / 2, height / 2 + 38, 'Press C to keep climbing', {
+      fontSize: '15px', color: '#aaaaaa',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+
+    this.tweens.add({ targets: prompt, alpha: 0, duration: 600, yoyo: true, repeat: -1 });
+
+    const cleanup = () => { box.destroy(); title.destroy(); prompt.destroy(); skip.destroy(); };
+
+    this.input.keyboard.once('keydown-SPACE', () => {
+      cleanup();
+      this.scene.start('Game', { level: 2 });
+    });
+    this.input.keyboard.once('keydown-C', () => {
+      cleanup();
+    });
+  }
+
+  _showVictoryScreen() {
+    this._levelUpShown = true;
+    this.physics.pause();
+    this.tweens.pauseAll();
+    this.time.paused = true;
+
+    const { width, height } = this.scale;
+
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6)
+      .setScrollFactor(0).setDepth(40);
+
+    this.add.text(width / 2, height / 2 - 80, 'YOU WIN!', {
+      fontSize: '60px', color: '#ffdd00',
+      stroke: '#000000', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
+
+    this.add.text(width / 2, height / 2 - 10, 'You conquered both levels!', {
+      fontSize: '22px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
+
+    const btn = this.add.text(width / 2, height / 2 + 70, 'Home', {
+      fontSize: '28px', color: '#ffffff',
+      backgroundColor: '#226622',
+      padding: { x: 28, y: 14 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(41)
+      .setInteractive({ useHandCursor: true });
+
+    btn.once('pointerdown', () => { this._music?.stop(); this.scene.start('MainMenu'); });
+    this.input.keyboard.once('keydown-SPACE', () => { this._music?.stop(); this.scene.start('MainMenu'); });
+  }
+
   // ── Breaking logic ───────────────────────────────────────────────────────
 
   _handleBranchTimer(delta) {
@@ -241,7 +342,7 @@ export default class Game extends Phaser.Scene {
     platform.setData('standTime', elapsed);
 
     // Warning: tint orange and flash
-    if (elapsed >= BREAK_WARN_MS && !platform.getData('warning')) {
+    if (elapsed >= this._breakWarnMs && !platform.getData('warning')) {
       platform.setData('warning', true);
       platform.setTint(0xff6600);
       this.tweens.add({
@@ -253,7 +354,7 @@ export default class Game extends Phaser.Scene {
       });
     }
 
-    if (elapsed >= BREAK_TOTAL_MS) {
+    if (elapsed >= this._breakTotalMs) {
       this._breakBranch(platform);
     }
   }
@@ -318,8 +419,19 @@ export default class Game extends Phaser.Scene {
     this.currentHeightText.setText(`Current: ${Math.floor(height / 10)}m`);
     this.maxHeightText.setText(`Best: ${Math.floor(this.maxHeight / 10)}m`);
 
+    // Offer level 2 when the player reaches the top of level 1
+    if (this._level === 1 && !this._levelUpShown && this.player.y <= TOP_THRESHOLD) {
+      this._showLevelUpPrompt();
+    }
+
+    // Victory when the player reaches the top of level 2
+    if (this._level === 2 && !this._levelUpShown && this.player.y <= TOP_THRESHOLD) {
+      this._showVictoryScreen();
+    }
+
     if (this.player.y > WORLD_HEIGHT - 20) {
-      this.scene.start('GameOver', { depth: Math.floor(this.maxHeight / 10) });
+      this._music?.stop();
+      this.scene.start('GameOver', { depth: Math.floor(this.maxHeight / 10), level: this._level });
     }
 
     // Reset timer only after 3 consecutive frames off the platform, to avoid

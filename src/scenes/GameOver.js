@@ -5,18 +5,20 @@ export default class GameOver extends Phaser.Scene {
 
   create(data) {
     const { width, height } = this.scale;
+    const level = data?.level ?? 1;
 
     this.add.text(width / 2, height / 3, 'Game Over', {
       fontSize: '64px',
       color: '#ff4444',
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, height / 2, `Height reached: ${data.depth ?? 0}m`, {
+    const levelLabel = level > 1 ? ` (Level ${level})` : '';
+    this.add.text(width / 2, height / 2 - 20, `Height reached: ${data.depth ?? 0}m${levelLabel}`, {
       fontSize: '24px',
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    const restartText = this.add.text(width / 2, height / 2 + 60, 'Press SPACE to Restart', {
+    const restartText = this.add.text(width / 2, height / 2 + 40, 'Press SPACE to Restart', {
       fontSize: '24px',
       color: '#aaaaaa',
     }).setOrigin(0.5);
@@ -30,7 +32,7 @@ export default class GameOver extends Phaser.Scene {
     });
 
     this.input.keyboard.once('keydown-SPACE', () => {
-      this.scene.start('Game');
+      this.scene.start('Game', { level });
     });
   }
 }
