@@ -25,6 +25,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     mobileInput.jumpJustPressed = false;
     if (jumpPressed && onGround) {
       this.setVelocityY(-480);
+      this.scene.sound.play('jump', { volume: 0.7 });
     }
 
     this._updateAnimation(onGround);

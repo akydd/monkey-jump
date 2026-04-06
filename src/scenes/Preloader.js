@@ -16,6 +16,7 @@ export default class Preloader extends Phaser.Scene {
 
     // Load all game assets here
     this.load.audio('music', 'music/play.mp3');
+    this.load.audio('jump', 'music/jump.mp3');
   }
 
   create() {
