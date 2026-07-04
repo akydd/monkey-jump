@@ -41,7 +41,10 @@ export default class MainMenu extends Phaser.Scene {
       repeat: -1,
     });
 
-    const startGame = () => this.scene.start('Game');
+    // Always begin a fresh run at level 1. Passing the level explicitly is
+    // required: scene.start() keeps the scene's previous data when none is
+    // given, which would otherwise carry over `level: 2` from a finished game.
+    const startGame = () => this.scene.start('Game', { level: 1 });
     button.once('pointerdown', startGame);
     this.input.keyboard.once('keydown-SPACE', startGame);
   }

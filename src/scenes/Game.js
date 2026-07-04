@@ -84,9 +84,12 @@ export default class Game extends Phaser.Scene {
       this._showLevelBanner(`Level ${this._level}`);
     }
 
-    // Background music — start only on level 1 to avoid restarting between levels
-    if (this._level === 1) {
-      this._music = this.sound.add('music', { loop: true, volume: 0.6 });
+    // Background music — one continuous track for the whole session. It lives in
+    // the global sound manager and survives scene restarts, so reuse the existing
+    // instance (e.g. carried over from level 1 → 2) and only start it if it isn't
+    // already playing. This also covers restarting from Game Over at any level.
+    this._music = this.sound.get('music') ?? this.sound.add('music', { loop: true, volume: 0.6 });
+    if (!this._music.isPlaying) {
       this._music.play();
     }
   }
