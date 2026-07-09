@@ -277,29 +277,39 @@ export default class Game extends Phaser.Scene {
     this._levelUpShown = true;
     const { width, height } = this.scale;
 
-    const box = this.add.rectangle(width / 2, height / 2, 360, 130, 0x000000, 0.7)
+    const box = this.add.rectangle(width / 2, height / 2, 360, 160, 0x000000, 0.7)
       .setScrollFactor(0).setDepth(30);
-    const title = this.add.text(width / 2, height / 2 - 28, 'You reached the top!', {
+    const title = this.add.text(width / 2, height / 2 - 48, 'You reached the top!', {
       fontSize: '22px', color: '#ffdd00', stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
-    const prompt = this.add.text(width / 2, height / 2 + 10, 'Press SPACE for Level 2', {
-      fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
-    const skip = this.add.text(width / 2, height / 2 + 38, 'Press C to keep climbing', {
-      fontSize: '15px', color: '#aaaaaa',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
 
-    this.tweens.add({ targets: prompt, alpha: 0, duration: 600, yoyo: true, repeat: -1 });
+    const nextBtn = this.add.text(width / 2, height / 2 + 2, 'Next Level', {
+      fontSize: '24px', color: '#ffffff',
+      backgroundColor: '#226622',
+      padding: { x: 28, y: 12 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31)
+      .setInteractive({ useHandCursor: true });
 
-    const cleanup = () => { box.destroy(); title.destroy(); prompt.destroy(); skip.destroy(); };
+    const skipBtn = this.add.text(width / 2, height / 2 + 52, 'Keep climbing', {
+      fontSize: '16px', color: '#cccccc',
+      backgroundColor: '#333333',
+      padding: { x: 18, y: 8 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31)
+      .setInteractive({ useHandCursor: true });
 
-    this.input.keyboard.once('keydown-SPACE', () => {
-      cleanup();
-      this.scene.start('Game', { level: 2 });
-    });
-    this.input.keyboard.once('keydown-C', () => {
-      cleanup();
-    });
+    const cleanup = () => {
+      this.input.keyboard.off('keydown-SPACE', goNext);
+      this.input.keyboard.off('keydown-C', keepClimbing);
+      box.destroy(); title.destroy(); nextBtn.destroy(); skipBtn.destroy();
+    };
+
+    const goNext = () => { cleanup(); this.scene.start('Game', { level: 2 }); };
+    const keepClimbing = () => { cleanup(); };
+
+    nextBtn.once('pointerdown', goNext);
+    skipBtn.once('pointerdown', keepClimbing);
+    this.input.keyboard.on('keydown-SPACE', goNext);
+    this.input.keyboard.on('keydown-C', keepClimbing);
   }
 
   _showVictoryScreen() {
