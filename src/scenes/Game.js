@@ -423,7 +423,7 @@ export default class Game extends Phaser.Scene {
   update(_time, delta) {
     if (this._paused) return;
 
-    this.player.update(this.cursors, this.mobileInput);
+    this.player.update(this.cursors, this.mobileInput, delta);
 
     this._handleBranchTimer(delta);
 

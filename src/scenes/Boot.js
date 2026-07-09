@@ -104,7 +104,7 @@ export default class Boot extends Phaser.Scene {
     leafG.destroy();
 
     // One 40×52 texture per monkey pose
-    for (const pose of ['idle', 'run1', 'run2', 'jump', 'fall']) {
+    for (const pose of ['idle', 'run1', 'run2', 'jump', 'fall', 'sleep1', 'sleep2']) {
       const g = this.make.graphics({ add: false });
       this._drawMonkey(g, pose);
       g.generateTexture(`monkey-${pose}`, 40, 52);
@@ -123,6 +123,12 @@ export default class Boot extends Phaser.Scene {
    *   Hips          (16, 47) / (24, 47)
    */
   _drawMonkey(g, pose) {
+    // Sleep poses lie the monkey down — a completely different layout
+    if (pose === 'sleep1' || pose === 'sleep2') {
+      this._drawSleepingMonkey(g, pose);
+      return;
+    }
+
     const DARK  = 0x7B3F00;   // dark brown — outline / head / ears
     const MID   = 0xC68642;   // mid brown  — body
     const FACE  = 0xDEB887;   // burlywood  — face oval
@@ -251,6 +257,93 @@ export default class Boot extends Phaser.Scene {
     }
   }
 
+  /**
+   * Draws a sleeping monkey lying on the ground, filling the bottom of the
+   * 40×52 frame so he rests on the branch surface. Head on the left, body
+   * curled to the right, closed eyes, snoring mouth, and "Z"s rising above.
+   * `pose` is 'sleep1' or 'sleep2'; the Z positions differ between the two.
+   */
+  _drawSleepingMonkey(g, pose) {
+    const DARK  = 0x7B3F00;
+    const MID   = 0xC68642;
+    const FACE  = 0xDEB887;
+    const SNOUT = 0xFFDEAD;
+    const PINK  = 0xFFB6C1;
+
+    // Tail — curls up off the right end of the body (drawn first)
+    g.lineStyle(4, DARK, 1);
+    g.beginPath();
+    for (const [x, y] of [[34, 45], [38, 42], [39, 37], [36, 34], [32, 35]]) {
+      g.lineTo(x, y);
+    }
+    g.strokePath();
+
+    // Legs — tucked, bent at the lower-right
+    g.lineStyle(6, DARK, 1);
+    this._seg(g, 28, 49, 33, 52);
+    this._seg(g, 31, 47, 38, 50);
+
+    // Arms — one under the head like a pillow, one draped over the body
+    g.lineStyle(5, DARK, 1);
+    this._seg(g, 17, 45, 10, 50);
+    this._seg(g, 19, 43, 28, 47);
+
+    // Body — horizontal ellipse resting on the ground
+    g.fillStyle(MID);
+    g.fillEllipse(25, 45, 26, 15);
+
+    // Ears — on top of the head
+    g.fillStyle(DARK);
+    g.fillCircle(6, 33, 5);
+    g.fillCircle(16, 32, 5);
+    g.fillStyle(PINK);
+    g.fillCircle(6, 33, 2.5);
+    g.fillCircle(16, 32, 2.5);
+
+    // Head — on the left, resting on the ground
+    g.fillStyle(DARK);
+    g.fillCircle(11, 42, 10);
+
+    // Face oval facing up
+    g.fillStyle(FACE);
+    g.fillEllipse(10, 44, 12, 9);
+
+    // Closed eyes — gentle downward arcs
+    g.lineStyle(1.5, 0x1a1a2e, 1);
+    g.beginPath(); g.arc(7, 42, 2.5, 0, Math.PI); g.strokePath();
+    g.beginPath(); g.arc(14, 42, 2.5, 0, Math.PI); g.strokePath();
+
+    // Snout
+    g.fillStyle(SNOUT);
+    g.fillEllipse(9, 47, 8, 5);
+
+    // Nostrils
+    g.fillStyle(0x5c2d0e);
+    g.fillCircle(7.5, 47, 0.9);
+    g.fillCircle(10.5, 47, 0.9);
+
+    // Small open snoring mouth
+    g.fillStyle(0x5c2d0e);
+    g.fillEllipse(9, 50, 3, 2);
+
+    // Floating "Z"s — positions rise between frames so they drift upward
+    const zs = pose === 'sleep1'
+      ? [[19, 22, 3], [25, 15, 4]]
+      : [[20, 17, 4], [26, 10, 3]];
+    for (const [zx, zy, zsz] of zs) this._drawZ(g, zx, zy, zsz);
+  }
+
+  /** Draw a "Z" (sleep glyph) with its top-left corner at (x, y). */
+  _drawZ(g, x, y, size) {
+    g.lineStyle(1.5, 0xffffff, 1);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + size, y);
+    g.lineTo(x, y + size);
+    g.lineTo(x + size, y + size);
+    g.strokePath();
+  }
+
   /** Draw a line segment using the current lineStyle. */
   _seg(g, x1, y1, x2, y2) {
     g.beginPath();
@@ -290,6 +383,16 @@ export default class Boot extends Phaser.Scene {
       key: 'monkey-fall',
       frames: [{ key: 'monkey-fall' }],
       frameRate: 1,
+      repeat: -1,
+    });
+
+    this.anims.create({
+      key: 'monkey-sleep',
+      frames: [
+        { key: 'monkey-sleep1' },
+        { key: 'monkey-sleep2' },
+      ],
+      frameRate: 2,
       repeat: -1,
     });
   }
